@@ -1,0 +1,26 @@
+    gmtset TICK_LENGTH 0.1
+    gmtset LABEL_FONT 5
+    gmtset LABEL_FONT_SIZE 10
+    gmtset ANOT_FONT_SIZE 8
+    surface rand.txt -Gtmp.grd -I0.1 -R-4/4/-4/4 -I0.1 -C0.001
+    # rand.txt: [lat,lon,data]
+    #  -将资料网格化并存为grd文件
+    # -T: 设定tension factor
+    # -I: 设定网格大小
+    # -C: 设定收敛限制值
+    grd2cpt tmp.grd -Cjet -Z -V > tmp.cpt
+    # -产生等值图所需的颜色渐变文件(*.cpt)
+    # -C: 选择参考色
+    # -T: 定义新cpt文件的范围,例如-Tz0/z1/dz为,起始值(z0),终止值(z1),间距(dz)
+    # -Z: 让颜色具有连续性(smooth)
+    grdimage tmp.grd -Jx2 -Ctmp.cpt -B1WSne -K >dzx.ps
+    # -使用grd的资料绘出以颜色表示的等值图,色表使用tmp.cpt
+    grdcontour tmp.grd -Jx -C1 -A5f6 -G1 -O -Wa3/255 -Wc1/255 >> dzx.ps
+    # -使用sst.grd的资料会出等值线
+    # -A5f6 每隔5画出等值线并标出其值,f指定字型
+    # -C1 每隔1画出等值线但不标出其值
+    # -G1 設定沿著等值线标出值的间隔
+    # -Wa3/255 设定-A所标出的等值线宽度及颜色
+    # -Wc1/255 设定-C所标出的等值线宽度及颜色
+    rm .gmt* tmp.*
+    ps2raster dzx.ps -A -P 
