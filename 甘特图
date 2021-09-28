@@ -1,0 +1,90 @@
+#! /bin/bash
+
+if [ $# -ne 1 ] && [ $# -ne 2 ]  && [ $# -ne 3 ] ;then
+	echo 'gmtedi.sh - A tool for plotting the MT EDI data file using GMT 5.3.3.'
+	echo ' - Usage: gmtedi.sh site.edi [outfilename scale]'
+	echo ''
+	echo ' scale is the width of every site '
+	echo 'Example:you have 20 sites, and scale is 1(default) ,then the width of this figure is 1*20=20cm.'
+	echo ''
+	echo ' data.txt includes site name,  begainning of time,    end of time'
+	echo 'data example(one line):NMG04a 2018-07-21T10:30:30 2018-08-01T17:20:20'
+	echo ''
+	echo ' - Dependences: gawk, gmt, bc'
+	exit
+fi # script info.
+
+DATA=$1
+f=gantt_chart
+SCA=1
+if [ $# -eq 2 ]; then
+	f=$2
+fi
+if [ $# -eq 3 ]; then
+	f=$2;
+	SCA=$3;
+fi
+PDF=$f.pdf
+PNG=$f.png
+ASC=$f.asc
+PS=$f.ps
+
+#varation
+#这个文件是用来存储自定义坐标轴的数据，格式为：坐标，a/i/f/g, label。
+Y_ANNOTION=y_annotion.txt
+MIN_MAX=min_max.txt
+# time range
+
+#T_MIN=2018-06-15
+#T_MAX=2018-09-30
+#gawk '{printf("%.8s\n%.8s\n",$2,$3)}' $DATA | gmt info -C >$MIN_MAX
+#这里先用gawk把$2和$3并为一列，在把2918-08-08这种格式cut为20180808，
+#比较大小后，再用cut变回来。
+gawk '{printf("%.10s\n%.10s\n",$2,$3)}' $DATA |cut -c 1-4,6-7,9-10 |  gmt info -C >$MIN_MAX
+T_MIN=`gawk '{print $1}' $MIN_MAX|cut -c 1-4,5-6,7-8  --output-delimiter='-' `
+T_MAX=`gawk '{print $2+1}' $MIN_MAX|cut -c 1-4,5-6,7-8  --output-delimiter='-' `
+
+
+
+# $DATA lines
+NUM_LINES=`awk '{print NR}' $DATA|tail -n1`
+
+
+R_LENGTH=`echo  "scale=2; $SCA+$SCA*$NUM_LINES" |bc`
+PEN_WIDTH=`echo "scale=2; $R_LENGTH*0.8" |bc`
+gmt set FORMAT_DATE_MAP=o
+# 2 time format, A: 20180910163030 or 20180910T163030
+#gmt set FORMAT_DATE_IN=yyyymmdd FORMAT_CLOCK_IN=hhmmss
+# time format, B:2018-09-10T16:30:30
+gmt set FORMAT_DATE_IN=yyyy-mm-dd FORMAT_CLOCK_IN=hh:mm:ss
+
+gmt set MAP_FRAME_WIDTH=0.4p
+gmt set FONT_ANNOT_PRIMARY +5p
+#gmt set MAP_TICK_LENGTH_SECONDARY=10p
+
+RR=-R${T_MIN}T/${T_MAX}T/0/$[$NUM_LINES+1]
+JJ=-JX${R_LENGTH}c/${R_LENGTH}c
+
+
+
+
+# plot frame
+
+gmt psbasemap $JJ $RR  -BwSen -Bpxg1d -Byf1 --MAP_TICK_LENGTH=0p --MAP_GRID_PEN_PRIMARY=0.1p,lightgray,- -K -P >$PS
+gmt psbasemap $JJ $RR -Bpxa7Rf1dg1O -Bsxa1O -BS  --MAP_GRID_PEN_PRIMARY=0.2p,green -K -O >>$PS
+
+
+
+gawk '{print NR,"a",$1}' $DATA >$Y_ANNOTION
+#time format, A: 20180910163030 or 20180910T163030
+#gawk '{printf("%d %d\n%d %d\n\n>\n",$2,NR,$3,NR)}' $DATA |gmt psxy  $JJ $RR -BW -Byf1 \
+#	-Bpyc${Y_ANNOTION}  -W${PEN_WIDTH}p,blue -K -O>>$PS
+#time format, B:2018-09-10T16:30:30
+gawk '{printf("%s %s\n%.19s %s\n\n>\n",$2,NR,$3,NR)}' $DATA |gmt psxy  $JJ $RR -BW -Byf1 \
+	-Bpyc${Y_ANNOTION}  -W${PEN_WIDTH}p,blue  -K -O>>$PS 
+
+
+gmt psbasemap $JJ $RR -BW -O >> $PS
+
+gmt psconvert $PS -Tf -A -F$PDF
+gmt psconvert $PS -Tg -A -F$PNG
